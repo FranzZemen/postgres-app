@@ -11,6 +11,8 @@ Aurora cluster (the EC2 worker host); BROKENSTOCK_DB must be set in env.
 
 import {readFileSync, existsSync} from 'node:fs';
 import {ExecutionContext} from '@franzzemen/execution-context';
+// Side-effect: register the postgres schema before any ec.put('postgres', ...).
+import '../project/config-loader/validation.js';
 
 const CONFIG_PATH = './config.json';
 
