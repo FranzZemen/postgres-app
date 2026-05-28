@@ -36,13 +36,13 @@ describe('@franzzemen/postgres-app/migrations (integration)', function () {
   this.timeout(120_000);
 
   let pool: Pool;
-  let ec: ReturnType<typeof makeTestEc>;
+  let ec: Awaited<ReturnType<typeof makeTestEc>>;
   let migrationsDir: string;
 
   before(async () => {
     process.env['BROKENSTOCK_DB'] = process.env['BROKENSTOCK_DB'] ?? 'dev_franz';
     getBrokenstockDb();
-    ec = makeTestEc();
+    ec = await makeTestEc();
     const cfg = loadPostgresConfig(ec, 'rds-user');
     pool = createPool(ec, cfg);
     await warmAurora(pool);

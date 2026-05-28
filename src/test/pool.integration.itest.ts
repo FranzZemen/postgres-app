@@ -29,7 +29,7 @@ describe('@franzzemen/postgres-app/pool (integration)', function () {
   before(async () => {
     process.env['BROKENSTOCK_DB'] = process.env['BROKENSTOCK_DB'] ?? 'dev_franz';
     getBrokenstockDb();
-    const ec = makeTestEc();
+    const ec = await makeTestEc();
     const cfg = loadPostgresConfig(ec, 'rds-user');
     pool = createPool(ec, cfg);
     await warmAurora(pool);

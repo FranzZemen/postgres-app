@@ -14,7 +14,8 @@
   "author": "Franz Zemen",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:integration": "mocha './out/test/**/*.itest.js' --exit"
   },
   "exports": {
     "./pool": {
@@ -49,25 +50,27 @@
     }
   },
   "dependencies": {
-    "@franzzemen/aws-app": "^29.0.0",
-    "@franzzemen/enhanced-error": "^8.1.205",
-    "@franzzemen/execution-context": "^16.1.23",
-    "@franzzemen/fastest-validator-wrapper": "^2.2.172",
-    "@franzzemen/logger": "^104.0.40",
-    "@franzzemen/utility": "^13.7.14",
+    "@franzzemen/aws-app": "^29.1.1",
+    "@franzzemen/enhanced-error": "^8.1.206",
+    "@franzzemen/execution-context": "^16.1.24",
+    "@franzzemen/fastest-validator-wrapper": "^2.2.173",
+    "@franzzemen/logger": "^104.0.41",
+    "@franzzemen/utility": "^13.7.15",
     "fastest-validator": "^1.19.1",
-    "kysely": "^0.27.4",
-    "node-pg-migrate": "^7.9.0",
-    "pg": "^8.13.1"
+    "kysely": "^0.29.2",
+    "node-pg-migrate": "^8.0.4",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
-    "@aws-sdk/credential-providers": "^3.1055.0",
-    "@aws-sdk/rds-signer": "^3.1055.0",
+    "@aws-sdk/credential-providers": "^3.1056.0",
+    "@aws-sdk/rds-signer": "^3.1056.0",
     "@franzzemen/build-system": "^33.0.0",
+    "@franzzemen/execution-context-node-loader": "^2.0.30",
+    "@franzzemen/safe-config": "^5.1.31",
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.9.1",
-    "@types/pg": "^8.11.10",
+    "@types/pg": "^8.20.0",
     "chai": "^6.2.2",
     "mocha": "^11.7.6",
     "typescript": "^6.0.3"

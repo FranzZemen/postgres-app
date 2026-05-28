@@ -2,47 +2,45 @@
 Created by Franz Zemen
 License Type: UNLICENSED
 
-Shared bootstrap for integration tests. Loads config.json from CWD (which
-must live next to package.json on the test host) and seeds an
-ExecutionContext with the `aws` and `postgres` blocks under their canonical
-keys. Integration tests must be run from a host with VPC reach to the
-Aurora cluster (the EC2 worker host); BROKENSTOCK_DB must be set in env.
+Shared bootstrap for integration tests. Builds an ExecutionContext from the
+committed `config.json.encrypt` blob (decrypted via the AWSSECRET env var).
+A plain `config.json` next to `package.json` is supported as an optional
+local-dev override and is gitignored.
+
+Integration tests must be run from a host with VPC reach to the Aurora
+cluster (typically the EC2 worker host); BROKENSTOCK_DB must be set in env.
+Default `npx bs.test` does NOT run these — they live in `*.itest.ts` files
+picked up by `npm run test:integration` only.
 */
 
-import {readFileSync, existsSync} from 'node:fs';
+import {loadNodeExecutionContext, type LoadExecutionConfigsFunctionInputs} from '@franzzemen/execution-context-node-loader';
 import {ExecutionContext} from '@franzzemen/execution-context';
 // Side-effect: register the postgres schema before any ec.put('postgres', ...).
 import '../project/config-loader/validation.js';
 
-const CONFIG_PATH = './config.json';
+let cached: ExecutionContext | null = null;
 
-interface TestConfig {
-  aws: Record<string, unknown>;
-  postgres?: Record<string, unknown>;
-}
-
-let cached: TestConfig | null = null;
-
-function loadConfig(): TestConfig {
+export async function makeTestEc(): Promise<ExecutionContext> {
   if (cached) return cached;
-  if (!existsSync(CONFIG_PATH)) {
+
+  const secret = process.env['AWSSECRET'];
+  if (!secret) {
     throw new Error(
-      `Integration tests require ./config.json next to package.json. ` +
-      `See doc/guide/package.guide.md for the expected shape.`,
+      'AWSSECRET env var must be set for integration tests (decrypts ./config.json.encrypt)',
     );
   }
-  cached = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8')) as TestConfig;
-  return cached;
-}
 
-export function makeTestEc(): ExecutionContext {
-  const cfg = loadConfig();
-  const ec = new ExecutionContext();
-  ec.put('aws', cfg.aws);
-  if (cfg.postgres) {
-    ec.put('postgres', cfg.postgres);
-  }
-  return ec;
+  const inputs: LoadExecutionConfigsFunctionInputs = {
+    secret,
+    jsonEncryptPath: './config.json.encrypt',
+    jsonFilePath: './config.json',
+    executionName: 'postgres-app.integration-tests',
+  };
+  // Side effect: loads + registers configs (and decrypts secrets) into the
+  // ExecutionContext singleton state. The fresh ec below picks them up.
+  await loadNodeExecutionContext(inputs);
+  cached = new ExecutionContext();
+  return cached;
 }
 
 export function getBrokenstockDb(): string {
