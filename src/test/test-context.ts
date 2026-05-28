@@ -52,3 +52,34 @@ export function getBrokenstockDb(): string {
   }
   return v;
 }
+
+/**
+ * Aurora Serverless v2 scaled-to-zero clusters drop the first few native-PG
+ * connect attempts during the scale-from-zero wake-up (Data API would handle
+ * this gracefully; native PG socket resets are surfaced as "Connection
+ * terminated unexpectedly"). Retry SELECT 1 a few times with delays so
+ * integration tests can run from cold against dev_franz without manual
+ * pre-warming.
+ *
+ * No-op once Aurora is hot.
+ */
+import type {Pool} from 'pg';
+export async function warmAurora(pool: Pool): Promise<void> {
+  const maxAttempts = 8;
+  const delayMs = 5_000;
+  let lastErr: unknown;
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      await pool.query('SELECT 1');
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (i < maxAttempts) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw new Error(
+    `Aurora warm-up failed after ${maxAttempts} attempts: ${(lastErr as Error)?.message ?? lastErr}`,
+  );
+}

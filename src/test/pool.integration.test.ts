@@ -12,7 +12,7 @@ import type {Pool} from 'pg';
 import {loadPostgresConfig} from '../project/config-loader/index.js';
 import {createPool} from '../project/pool/index.js';
 import {createKysely} from '../project/query/index.js';
-import {makeTestEc, getBrokenstockDb} from './test-context.js';
+import {makeTestEc, getBrokenstockDb, warmAurora} from './test-context.js';
 
 const expect = chai.expect;
 
@@ -22,16 +22,17 @@ interface MinimalDb {
 
 describe('@franzzemen/postgres-app/pool (integration)', function () {
   // Aurora cold-start can take 15-30s if cluster scaled to zero.
-  this.timeout(60_000);
+  this.timeout(120_000);
 
   let pool: Pool;
 
-  before(() => {
+  before(async () => {
     process.env['BROKENSTOCK_DB'] = process.env['BROKENSTOCK_DB'] ?? 'dev_franz';
     getBrokenstockDb();
     const ec = makeTestEc();
     const cfg = loadPostgresConfig(ec, 'rds-user');
     pool = createPool(ec, cfg);
+    await warmAurora(pool);
   });
 
   after(async () => {

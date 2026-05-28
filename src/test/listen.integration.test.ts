@@ -12,23 +12,28 @@ import type {Pool} from 'pg';
 import {loadPostgresConfig} from '../project/config-loader/index.js';
 import {createPool} from '../project/pool/index.js';
 import {createListenClient, type ListenClient} from '../project/listen/index.js';
-import {makeTestEc, getBrokenstockDb} from './test-context.js';
+import {makeTestEc, getBrokenstockDb, warmAurora} from './test-context.js';
 
 const expect = chai.expect;
 
 describe('@franzzemen/postgres-app/listen (integration)', function () {
-  this.timeout(60_000);
+  this.timeout(120_000);
 
   let pool: Pool;
   let listenClient: ListenClient;
 
-  before(() => {
+  before(async () => {
     process.env['BROKENSTOCK_DB'] = process.env['BROKENSTOCK_DB'] ?? 'dev_franz';
     getBrokenstockDb();
     const ec = makeTestEc();
     const cfg = loadPostgresConfig(ec, 'rds-user');
     pool = createPool(ec, cfg);
+    await warmAurora(pool);
     listenClient = createListenClient(ec, cfg);
+    // Give the dedicated listen client a moment to complete its initial
+    // connect handshake after Aurora is warm. Subsequent reconnects (if any)
+    // are handled by the listen client's own backoff loop.
+    await new Promise((r) => setTimeout(r, 2_000));
   });
 
   after(async () => {

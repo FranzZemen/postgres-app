@@ -25,7 +25,7 @@ import {
   verifyMinSchemaVersion,
   MinSchemaVersionError,
 } from '../project/migrations/index.js';
-import {makeTestEc, getBrokenstockDb} from './test-context.js';
+import {makeTestEc, getBrokenstockDb, warmAurora} from './test-context.js';
 
 const expect = chai.expect;
 
@@ -33,7 +33,7 @@ const TEST_TABLE = 'pgmigrations_postgres_app_test';
 const TEST_TARGET_TABLE = 'postgres_app_test_smoke';
 
 describe('@franzzemen/postgres-app/migrations (integration)', function () {
-  this.timeout(60_000);
+  this.timeout(120_000);
 
   let pool: Pool;
   let ec: ReturnType<typeof makeTestEc>;
@@ -45,6 +45,7 @@ describe('@franzzemen/postgres-app/migrations (integration)', function () {
     ec = makeTestEc();
     const cfg = loadPostgresConfig(ec, 'rds-user');
     pool = createPool(ec, cfg);
+    await warmAurora(pool);
 
     migrationsDir = mkdtempSync(join(tmpdir(), 'pgapp-mig-'));
     // node-pg-migrate's filename version is the leading digits.
