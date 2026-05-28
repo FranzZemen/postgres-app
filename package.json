@@ -1,0 +1,128 @@
+{
+  "name": "@franzzemen/postgres-app",
+  "version": "0.0.1",
+  "description": "PostgreSQL access for the worker fleet: pg pool with IAM auth via @franzzemen/aws-app/rds, kysely query builder, LISTEN/NOTIFY client, node-pg-migrate wrapper, MIN_SCHEMA_VERSION enforcement",
+  "homepage": "https://github.com/FranzZemen/postgres-app#readme",
+  "bugs": {
+    "url": "https://github.com/FranzZemen/postgres-app/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FranzZemen/postgres-app.git"
+  },
+  "license": "UNLICENSED",
+  "author": "Franz Zemen",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "exports": {
+    "./pool": {
+      "types": "./out/project/types/pool/index.d.ts",
+      "import": "./out/project/pool/index.js"
+    },
+    "./query": {
+      "types": "./out/project/types/query/index.d.ts",
+      "import": "./out/project/query/index.js"
+    },
+    "./tx": {
+      "types": "./out/project/types/tx/index.d.ts",
+      "import": "./out/project/tx/index.js"
+    },
+    "./listen": {
+      "types": "./out/project/types/listen/index.d.ts",
+      "import": "./out/project/listen/index.js"
+    },
+    "./migrations": {
+      "types": "./out/project/types/migrations/index.d.ts",
+      "import": "./out/project/migrations/index.js"
+    },
+    "./config-loader": {
+      "types": "./out/project/types/config-loader/index.d.ts",
+      "import": "./out/project/config-loader/index.js"
+    }
+  },
+  "imports": {
+    "#project": {
+      "types": "./out/project/types/project-index.d.ts",
+      "import": "./out/project/project-index.js"
+    }
+  },
+  "dependencies": {
+    "@franzzemen/aws-app": "^29.0.0",
+    "@franzzemen/enhanced-error": "^8.1.205",
+    "@franzzemen/execution-context": "^16.1.23",
+    "@franzzemen/fastest-validator-wrapper": "^2.2.172",
+    "@franzzemen/logger": "^104.0.40",
+    "@franzzemen/utility": "^13.7.14",
+    "fastest-validator": "^1.19.1",
+    "kysely": "^0.27.4",
+    "node-pg-migrate": "^7.9.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/credential-providers": "^3.1055.0",
+    "@aws-sdk/rds-signer": "^3.1055.0",
+    "@franzzemen/build-system": "^33.0.0",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.11.10",
+    "chai": "^6.2.2",
+    "mocha": "^11.7.6",
+    "typescript": "^6.0.3"
+  },
+  "npmuDependencies": [
+    {
+      "path": "../safe-config",
+      "packageName": "@franzzemen/safe-config"
+    },
+    {
+      "path": "../npmu",
+      "packageName": "@franzzemen/npmu",
+      "overrides": {
+        "@sinonjs/fake-timers": "15.2.2"
+      }
+    },
+    {
+      "path": "../fastest-validator-wrapper",
+      "packageName": "@franzzemen/fastest-validator-wrapper"
+    },
+    {
+      "path": "../module-factory",
+      "packageName": "@franzzemen/module-factory"
+    },
+    {
+      "path": "../execution-context",
+      "packageName": "@franzzemen/execution-context"
+    },
+    {
+      "path": "../execution-context-node-loader",
+      "packageName": "@franzzemen/execution-context-node-loader"
+    },
+    {
+      "path": "../logger",
+      "packageName": "@franzzemen/logger"
+    },
+    {
+      "path": "../node-loggers",
+      "packageName": "@franzzemen/node-loggers"
+    },
+    {
+      "path": "../enhanced-error",
+      "packageName": "@franzzemen/enhanced-error"
+    },
+    {
+      "path": "../utility",
+      "packageName": "@franzzemen/utility"
+    },
+    {
+      "path": "../aws-app",
+      "packageName": "@franzzemen/aws-app"
+    },
+    {
+      "path": "./",
+      "packageName": "@franzzemen/postgres-app"
+    }
+  ]
+}
