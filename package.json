@@ -50,6 +50,8 @@
     }
   },
   "dependencies": {
+    "@aws-sdk/credential-providers": "^3.1056.0",
+    "@aws-sdk/rds-signer": "^3.1056.0",
     "@franzzemen/aws-app": "^29.1.1",
     "@franzzemen/enhanced-error": "^8.1.206",
     "@franzzemen/execution-context": "^16.1.24",
@@ -62,9 +64,7 @@
     "pg": "^8.21.0"
   },
   "devDependencies": {
-    "@aws-sdk/credential-providers": "^3.1056.0",
-    "@aws-sdk/rds-signer": "^3.1056.0",
-    "@franzzemen/build-system": "^33.0.0",
+    "@franzzemen/build-system": "^33.1.0",
     "@franzzemen/execution-context-node-loader": "^2.0.31",
     "@franzzemen/safe-config": "^5.1.31",
     "@types/chai": "^5.2.3",
