@@ -131,25 +131,30 @@ export function createListenClient(
 
   return {
     async subscribe(channel: string, handler: NotifyHandler): Promise<void> {
+      // Validate channel name immediately — before any map mutation or
+      // I/O — so callers see the error even if the underlying connection
+      // hasn't completed its initial handshake yet.
+      const safeChannel = escapeChannel(channel);
       let set = handlers.get(channel);
       if (!set) {
         set = new Set();
         handlers.set(channel, set);
         if (client) {
-          await client.query(`LISTEN "${escapeChannel(channel)}"`);
+          await client.query(`LISTEN "${safeChannel}"`);
         }
       }
       set.add(handler);
     },
 
     async unsubscribe(channel: string, handler: NotifyHandler): Promise<void> {
+      const safeChannel = escapeChannel(channel);
       const set = handlers.get(channel);
       if (!set) return;
       set.delete(handler);
       if (set.size === 0) {
         handlers.delete(channel);
         if (client) {
-          await client.query(`UNLISTEN "${escapeChannel(channel)}"`);
+          await client.query(`UNLISTEN "${safeChannel}"`);
         }
       }
     },
