@@ -173,16 +173,84 @@ Multiple consumers can share a single database (e.g. dev_franz). To keep their m
 
 Default is `pgmigrations` (node-pg-migrate's default). Override per package.
 
-## Testing against `dev_franz`
+## Testing
 
-Integration tests must run from a host with VPC reach (the EC2 worker host). For repeated test cycles:
+### Test layout
 
-1. `git clone` on the host; `npm install`.
-2. Drop a `config.json` next to `package.json` with `aws.rds.dev_franz` populated. Use `environment: "lambda"` so AWS SDK falls back to the instance role.
-3. Set `BROKENSTOCK_DB=dev_franz` in env.
-4. Bump `connection-timeout-millis` to `30000` in `postgres.pool` — Aurora scale-from-zero exceeds the production 5s default.
-5. Tests include a `warmAurora()` helper that retries `SELECT 1` until Aurora's scale-from-zero stabilizes (Aurora drops the first few native-PG sockets during wake-up; Data API would handle gracefully). Each integration-test `before` calls it before any real test queries.
-6. Run `BROKENSTOCK_DB=dev_franz npx bs.test`.
+Two layers, separated by filename glob so the default `bs.test` invocation stays publish-friendly:
+
+| File suffix | Glob | Invocation | Reach required |
+|---|---|---|---|
+| `*.test.ts` | `out/test/**/*.test.js` (the `bs.test` default) | `npx bs.test` | none — pure unit tests, mocked ec |
+| `*.itest.ts` | `out/test/**/*.itest.js` | `npm run test:integration` | VPC reach to Aurora |
+
+Integration tests are **not** disabled — they're just opt-in. `npmu`'s automatic `bs.test` runs unit only and can publish from any host; `npm run test:integration` runs the real-Aurora tests explicitly when you ask.
+
+### Config
+
+The encrypted `config.json.encrypt` is committed to the repo. Decryption requires `AWSSECRET` in env. A plain `config.json` next to `package.json` is supported as a local-dev override (gitignored). `test-context.ts` uses `loadNodeExecutionContext` to handle both — same pattern as `aws-app` tests.
+
+### Running integration tests from the EC2 worker host
+
+Simplest path. The host has VPC reach, instance-role IAM credentials, and `AWSSECRET` available:
+
+```bash
+# SSM into the host as the brokenstock user
+aws ssm start-session --target i-0302bb5c17ad3aa1d --region us-west-2 --profile brokenstock-admin
+sudo su - brokenstock
+cd ~/dev/postgres-app
+git pull && npm install
+AWSSECRET=$AWSSECRET BROKENSTOCK_DB=dev_franz npm run test:integration
+```
+
+Expect 9 tests; first cold start ~30s due to Aurora scale-from-zero.
+
+### Running integration tests from the laptop via SSM tunnel
+
+Useful for tighter iteration without committing every change. Three things have to be true: TCP reaches Aurora (via tunnel), DNS resolves the cluster hostname to that tunnel, and SSL + IAM auth still see the real hostname (so neither rejects the connection).
+
+**Step 1 — Open the SSM port-forward tunnel** (runs in its own terminal, stays open until Ctrl-C):
+
+```bash
+aws ssm start-session \
+  --target i-0302bb5c17ad3aa1d \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters '{"host":["brokenstock-nonprod-aurora.cluster-ct25p21tys1f.us-west-2.rds.amazonaws.com"],"portNumber":["5432"],"localPortNumber":["5432"]}' \
+  --region us-west-2 \
+  --profile brokenstock-admin
+```
+
+Local port 5432 → SSM session → EC2 worker host → onward TCP to Aurora cluster:5432.
+
+**Step 2 — Map the cluster hostname to 127.0.0.1** (so SSL cert + IAM auth signature both match the hostname `pg.Pool` actually dials):
+
+```bash
+echo "127.0.0.1 brokenstock-nonprod-aurora.cluster-ct25p21tys1f.us-west-2.rds.amazonaws.com" \
+  | sudo tee -a /etc/hosts
+```
+
+Without this, `pg.connect()` to the cluster endpoint would still resolve to AWS's real IPs (which the laptop can't reach), and connecting directly to `localhost` would mismatch the SSL cert (`*.cluster-ct25p21tys1f.us-west-2.rds.amazonaws.com`) and the IAM auth token (signed for the cluster hostname).
+
+**Step 3 — Run the tests** (in a different terminal):
+
+```bash
+cd ~/dev/postgres-app
+AWSSECRET=$AWSSECRET BROKENSTOCK_DB=dev_franz npm run test:integration
+```
+
+**Step 4 — Cleanup when done:**
+
+```bash
+# Ctrl-C the tunnel terminal, then:
+sudo sed -i '/brokenstock-nonprod-aurora.cluster-ct25p21tys1f.us-west-2.rds.amazonaws.com/d' /etc/hosts
+```
+
+### Gotchas
+
+- **Local port 5432 must be free.** If a local Postgres is running on 5432, stop it or pick another `localPortNumber` for the tunnel — but then you'd also have to override the port in `config.json` for the tunneled test run. Stopping local PG is simpler.
+- **Session Manager plugin required.** Install once: see `https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-debian-and-ubuntu.html`.
+- **IAM:** the principal running `aws ssm start-session` needs `ssm:StartSession` on the `AWS-StartPortForwardingSessionToRemoteHost` document. The `brokenstock-admin` profile has it via the admin policy.
+- **Aurora scale-from-zero** still applies — `warmAurora()` in the test bootstrap retries `SELECT 1` until the cluster stabilizes. First run after the cluster has been idle takes ~30s.
 
 ## Operational notes
 

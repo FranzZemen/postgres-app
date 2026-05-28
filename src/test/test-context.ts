@@ -35,6 +35,12 @@ export async function makeTestEc(): Promise<ExecutionContext> {
     jsonEncryptPath: './config.json.encrypt',
     jsonFilePath: './config.json',
     executionName: 'postgres-app.integration-tests',
+    // Force 'lambda' so aws-app's getAWSServiceDefaults falls through to the
+    // default credential chain (instance role on the worker host; AWS_PROFILE-
+    // driven on the laptop via SSM tunnel). 'external' would force fromIni
+    // with the literal profile name (e.g. 'rds-user') which doesn't exist
+    // outside the canonical Lambda runtime config.
+    environment: 'lambda',
   };
   // Side effect: loads + registers configs (and decrypts secrets) into the
   // ExecutionContext singleton state. The fresh ec below picks them up.
