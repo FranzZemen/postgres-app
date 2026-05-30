@@ -34,7 +34,7 @@ It exists as its own package (rather than living inside `@franzzemen/aws-app`) b
 
 ## Why kysely (not Drizzle, Prisma, or raw pg)
 
-Decided in the C5 PRD interview (see `~/dev/projects/doc/prd/era-0-postgres-app-package.prd.md`, D3):
+Decided in the C5 PRD interview (see `~/dev/projects/doc/prd/era-0-c05-postgres-app-package.prd.md`, D3):
 
 - **Drizzle/Prisma** own their own migration systems; using their query API while ignoring their migrator means fighting the framework. The C5 PRD locked `node-pg-migrate` from the parent Intent Doc, so these were out.
 - **Raw `pg`** is fine for static SQL but devolves into hand-rolled dynamic-SQL string concatenation for non-trivial queries — historical injection-bug terrain.
@@ -85,7 +85,7 @@ This is the expand-contract migration pattern's enforcement mechanism — code o
 ## Related
 
 - Parent: `~/dev/projects/doc/intent/architecture-evolution.intent.md` (Front 4 — PG queue replaces SQS; Era 0)
-- PRD: `~/dev/projects/doc/prd/era-0-postgres-app-package.prd.md`
+- PRD: `~/dev/projects/doc/prd/era-0-c05-postgres-app-package.prd.md`
 - Dependency: `@franzzemen/aws-app/rds` (C4 — IAM token signer + CA bundle)
 - Downstream: `bs.server-deploy` (C10 — uses `verifyMinSchemaVersion` as pre-flight)
 - Memories: `project-schema-migration-discipline`, `project-era-0-database-decisions`, `project-lambda-discipline`, `feedback-aws-sdk-encapsulation`
