@@ -22,21 +22,20 @@ Optional flags:
   -h, --help                     Show this help.
 
 The CLI:
-  1. Prompts for the configuration secret (or reads $AWSSECRET if set).
-  2. Loads the encrypted config from ./config.json.encrypt.
-  3. Sets BROKENSTOCK_DB=<env> so postgres-app's config-loader picks the right DB.
-  4. Resolves the migrations package via `require.resolve('<pkg>/package.json')`
+  1. Sets BROKENSTOCK_DB=<env> so postgres-app's config-loader picks the right DB.
+  2. Bootstraps the execution context from AWS Secrets Manager via
+     @franzzemen/execution-context-secrets-loader (host IAM supplies read access).
+  3. Resolves the migrations package via `require.resolve('<pkg>/package.json')`
      and reads its `migrationsDir` export.
-  5. Calls the programmatic `migrate(ec, ...)` orchestrator from
+  4. Calls the programmatic `migrate(ec, ...)` orchestrator from
      @franzzemen/postgres-app/migrations.
 */
 
 import {parseArgs} from 'node:util';
 import {createRequire} from 'node:module';
-import {input, password} from '@inquirer/prompts';
 import {ExecutionContext} from '@franzzemen/execution-context';
 import {LoggerApi} from '@franzzemen/logger';
-import {loadNodeExecutionContext, type LoadExecutionConfigsFunctionInputs} from '@franzzemen/execution-context-node-loader';
+import {LoadSecretsExecutionConfigsFunctionInputs, loadSecretsExecutionContext} from '@franzzemen/execution-context-secrets-loader';
 import {migrate} from '../migrations/migrate.js';
 
 const HELP = `Usage: pg-app.migrate <env> --migrations-package=<pkg-name> [--direction up|down] [--count N] [--migrations-table <name>]
@@ -117,20 +116,32 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Bootstrap execution context. Prompt for the secret unless AWSSECRET is set.
-  const secret = process.env['AWSSECRET'] ?? await password({message: 'Enter configuration secret'});
-
-  // Pin the database for postgres-app's config-loader.
+  // Pin the database for postgres-app's config-loader BEFORE bootstrap.
   process.env['BROKENSTOCK_DB'] = env;
 
-  const inputs: LoadExecutionConfigsFunctionInputs = {
-    secret,
-    jsonEncryptPath: './config.json.encrypt',
-    jsonFilePath: './config.json',
-    executionName: 'pg-app-migrate',
-    environment: 'lambda',
+  // Bootstrap follows the lambda-batch pattern (Pre-Era-1.7 PRD D7).
+  const inputs: LoadSecretsExecutionConfigsFunctionInputs = {
+    bootstrap: {
+      awsContext: {
+        secretsManager: {
+          currentSecretSetName: 'production',
+          secretSetNames: ['production'],
+        },
+        environment: 'lambda',
+      },
+      // Profile string is a label only — actual permission scoping comes from
+      // the host EC2 IAM role's Secrets-Manager-User-Policy attachment
+      // (Pre-Era-1.7 D8). The whole ecosystem (lambdas + workers + this CLI)
+      // uses 'secrets-manager-admin' as the label for consistency.
+      profile: 'secrets-manager-admin',
+    },
+    overrides: {
+      'aws': {environment: 'lambda', lambda: {timeoutSeconds: 10}},
+      'execution-context': {name: 'pg-app-migrate'},
+      'log-config': {modules: {modulesToLoad: ['cloudWatchLoggerFactory']}},
+    },
   };
-  await loadNodeExecutionContext(inputs);
+  await loadSecretsExecutionContext(inputs);
   const ec = new ExecutionContext();
   await LoggerApi.load(ec);
   const log = new LoggerApi(ec, 'postgres-app', 'pg-app-migrate', 'main');
@@ -146,10 +157,6 @@ async function main(): Promise<void> {
 
   console.log(`pg-app.migrate: ${direction} complete against env='${env}'`);
 }
-
-// Suppress unused `input` import warning — `password` is used; keep `input`
-// available in case future flags want non-secret prompts.
-void input;
 
 main().catch((err) => {
   console.error(err);

@@ -34,7 +34,8 @@ export interface MigrateArgs {
  * Run migrations against the database selected by `BROKENSTOCK_DB`.
  *
  * Caller must have:
- *   - loaded an ExecutionContext (via `loadNodeExecutionContext`),
+ *   - loaded an ExecutionContext (via the secrets-loader bootstrap,
+ *     e.g. `loadSecretsExecutionContext`),
  *   - set `BROKENSTOCK_DB` to the target env's role/database identifier,
  *   - resolved `migrationsDir` (typically from a DDL package's
  *     `migrationsDir` export, discovered via `require.resolve`).

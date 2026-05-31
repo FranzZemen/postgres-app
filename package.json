@@ -59,10 +59,10 @@
     "@franzzemen/enhanced-error": "^8.1.207",
     "@franzzemen/execution-context": "^16.1.25",
     "@franzzemen/execution-context-node-loader": "^2.0.32",
+    "@franzzemen/execution-context-secrets-loader": "^4.0.137",
     "@franzzemen/fastest-validator-wrapper": "^2.3.2",
     "@franzzemen/logger": "^104.0.42",
     "@franzzemen/utility": "^13.7.16",
-    "@inquirer/prompts": "^8.5.1",
     "fastest-validator": "^1.19.1",
     "kysely": "^0.29.2",
     "node-pg-migrate": "^8.0.4",
@@ -126,6 +126,10 @@
     {
       "path": "../aws-app",
       "packageName": "@franzzemen/aws-app"
+    },
+    {
+      "path": "../execution-context-secrets-loader",
+      "packageName": "@franzzemen/execution-context-secrets-loader"
     },
     {
       "path": "./",
