@@ -13,6 +13,9 @@
   "license": "UNLICENSED",
   "author": "Franz Zemen",
   "type": "module",
+  "bin": {
+    "pg-app.migrate": "./out/project/bin/pg-app-migrate.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:integration": "mocha './out/test/**/*.itest.js' --exit"
@@ -55,9 +58,11 @@
     "@franzzemen/aws-app": "^29.1.4",
     "@franzzemen/enhanced-error": "^8.1.207",
     "@franzzemen/execution-context": "^16.1.25",
+    "@franzzemen/execution-context-node-loader": "^2.0.32",
     "@franzzemen/fastest-validator-wrapper": "^2.3.2",
     "@franzzemen/logger": "^104.0.42",
     "@franzzemen/utility": "^13.7.16",
+    "@inquirer/prompts": "^7.10.1",
     "fastest-validator": "^1.19.1",
     "kysely": "^0.29.2",
     "node-pg-migrate": "^8.0.4",
@@ -65,7 +70,6 @@
   },
   "devDependencies": {
     "@franzzemen/build-system": "^34.0.0",
-    "@franzzemen/execution-context-node-loader": "^2.0.32",
     "@franzzemen/safe-config": "^5.1.32",
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",

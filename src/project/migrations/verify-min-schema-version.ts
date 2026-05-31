@@ -8,76 +8,86 @@ import {ExecutionContext} from '@franzzemen/execution-context';
 import {LoggerApi} from '@franzzemen/logger';
 
 /**
- * Thrown by `verifyMinSchemaVersion` when the database's applied schema is
- * older than the consumer's required minimum. Callers (workers at boot,
- * `bs.server-deploy` pre-flight) should treat this as fatal — do NOT start
- * the worker / proceed with the deploy until migrations have been applied.
+ * Thrown by `verifyMinSchemaVersion` when the database has NOT applied a
+ * migration whose filename is >= the consumer's required minimum. Callers
+ * (workers at boot, `bs.server-deploy` pre-flight) should treat this as
+ * fatal — do NOT start the worker / proceed with the deploy until migrations
+ * have been applied.
  */
 export class MinSchemaVersionError extends Error {
-  readonly required: number;
-  readonly applied: number;
+  readonly required: string;
   readonly database: string;
+  readonly migrationsTable: string;
 
-  constructor(required: number, applied: number, database: string) {
+  constructor(required: string, database: string, migrationsTable: string) {
     super(
-      `database '${database}' is at schema version ${applied}, ` +
-      `but consumer requires >= ${required}; run migrations before starting`,
+      `database '${database}' has not applied a migration named >= '${required}' ` +
+      `in table '${migrationsTable}'; run migrations before starting`,
     );
     this.name = 'MinSchemaVersionError';
     this.required = required;
-    this.applied = applied;
     this.database = database;
+    this.migrationsTable = migrationsTable;
   }
 }
 
 /**
- * Verify that the database's applied schema version is >= `required`.
+ * Verify that the database has applied a migration with a name greater than
+ * or equal to `minSchemaVersion`.
  *
- * "Version" = the largest `id` in the `pgmigrations` table (node-pg-migrate's
- * monotonically-increasing migration number). If the table is missing or
- * empty, applied version is 0 — which fails any positive requirement, as
- * intended (the consumer's migrations haven't been applied yet).
+ * **MIN_SCHEMA_VERSION is a TIMESTAMP STRING**, not a count or numeric id.
+ * It is the filename (without extension) of the LARGEST migration the
+ * consumer's code depends on — e.g. `'2026-05-30T140030Z_worker_jobs'`.
+ * node-pg-migrate stores each applied migration in the `pgmigrations` table
+ * (default name) with the filename in the `name` column; since filenames
+ * follow the lex-sortable `YYYY-MM-DDTHHMMSSZ_<slug>` convention, plain
+ * string `>=` comparison is the correct ordering check.
+ *
+ * If the migrations table is missing OR no row satisfies the predicate,
+ * throw `MinSchemaVersionError`.
  *
  * Per the per-consumer MIN_SCHEMA_VERSION discipline: each consumer package
  * declares its own constant and calls this function at boot. The boot then
  * fails fast if the deploy ordering was wrong (code rolled out before
  * migrations).
  *
- * @throws MinSchemaVersionError if applied < required.
+ * @throws MinSchemaVersionError if no migration with `name >= minSchemaVersion` exists.
  */
 export async function verifyMinSchemaVersion(
   ec: ExecutionContext,
   pool: Pool,
-  required: number,
+  minSchemaVersion: string,
   migrationsTable: string = 'pgmigrations',
 ): Promise<void> {
   const log = new LoggerApi(ec, 'postgres-app', 'migrations', 'verifyMinSchemaVersion');
 
   const client = await pool.connect();
   try {
+    const database = (await client.query<{current_database: string}>(
+      'SELECT current_database()',
+    )).rows[0]?.current_database ?? 'unknown';
+
     const tableExistsResult = await client.query<{exists: boolean}>(
       'SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1) AS exists',
       [migrationsTable],
     );
     const tableExists = tableExistsResult.rows[0]?.exists === true;
 
-    let applied = 0;
-    if (tableExists) {
-      const maxResult = await client.query<{max_id: number | null}>(
-        `SELECT MAX(id)::int AS max_id FROM ${quoteIdentifier(migrationsTable)}`,
-      );
-      applied = maxResult.rows[0]?.max_id ?? 0;
+    if (!tableExists) {
+      throw new MinSchemaVersionError(minSchemaVersion, database, migrationsTable);
     }
 
-    const database = (await client.query<{current_database: string}>(
-      'SELECT current_database()',
-    )).rows[0]?.current_database ?? 'unknown';
+    const quotedTable = quoteIdentifier(migrationsTable);
+    const result = await client.query(
+      `SELECT 1 FROM ${quotedTable} WHERE name >= $1 LIMIT 1`,
+      [minSchemaVersion],
+    );
 
-    if (applied < required) {
-      throw new MinSchemaVersionError(required, applied, database);
+    if ((result.rowCount ?? 0) === 0) {
+      throw new MinSchemaVersionError(minSchemaVersion, database, migrationsTable);
     }
 
-    log.debug({required, applied, database}, 'min schema version check passed');
+    log.debug({required: minSchemaVersion, database}, 'min schema version check passed');
   } finally {
     client.release();
   }

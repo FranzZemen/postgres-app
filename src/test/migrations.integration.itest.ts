@@ -48,9 +48,9 @@ describe('@franzzemen/postgres-app/migrations (integration)', function () {
     await warmAurora(pool);
 
     migrationsDir = mkdtempSync(join(tmpdir(), 'pgapp-mig-'));
-    // node-pg-migrate's filename version is the leading digits.
+    // Pre-Era-1.6 filename convention: ISO 8601 UTC, lex-sortable.
     writeFileSync(
-      join(migrationsDir, '1700000001000_create-smoke.cjs'),
+      join(migrationsDir, '2026-05-30T140000Z_create_smoke.cjs'),
       `
 exports.up = (pgm) => {
   pgm.createTable('${TEST_TARGET_TABLE}', {
@@ -87,15 +87,15 @@ exports.down = (pgm) => {
 
     let caught: unknown = null;
     try {
-      await verifyMinSchemaVersion(ec, pool, 1, TEST_TABLE);
+      await verifyMinSchemaVersion(ec, pool, '2026-05-30T140000Z_create_smoke', TEST_TABLE);
     } catch (err) {
       caught = err;
     }
     expect(caught).to.be.instanceOf(MinSchemaVersionError);
     const e = caught as MinSchemaVersionError;
-    expect(e.required).to.equal(1);
-    expect(e.applied).to.equal(0);
+    expect(e.required).to.equal('2026-05-30T140000Z_create_smoke');
     expect(e.database).to.equal(getBrokenstockDb());
+    expect(e.migrationsTable).to.equal(TEST_TABLE);
   });
 
   it('runMigrations applies the test migration and the target table exists', async () => {
@@ -111,9 +111,26 @@ exports.down = (pgm) => {
     expect(r.rows[0]?.exists).to.equal(true);
   });
 
-  it('verifyMinSchemaVersion passes after migration applied', async () => {
-    // Migration id 1700000001000 satisfies "required >= 1" trivially.
-    await verifyMinSchemaVersion(ec, pool, 1, TEST_TABLE);
+  it('verifyMinSchemaVersion passes after migration applied (exact match)', async () => {
+    // The applied migration is '2026-05-30T140000Z_create_smoke'; requiring exactly
+    // that timestamp must pass (string >= comparison).
+    await verifyMinSchemaVersion(ec, pool, '2026-05-30T140000Z_create_smoke', TEST_TABLE);
+  });
+
+  it('verifyMinSchemaVersion passes when an OLDER timestamp is required', async () => {
+    // A newer applied migration (2026-...) satisfies an older requirement (2025-...).
+    await verifyMinSchemaVersion(ec, pool, '2025-01-01T000000Z_anything', TEST_TABLE);
+  });
+
+  it('verifyMinSchemaVersion fails when a NEWER timestamp is required', async () => {
+    let caught: unknown = null;
+    try {
+      await verifyMinSchemaVersion(ec, pool, '2099-01-01T000000Z_future', TEST_TABLE);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).to.be.instanceOf(MinSchemaVersionError);
+    expect((caught as MinSchemaVersionError).required).to.equal('2099-01-01T000000Z_future');
   });
 
   it('runMigrations rolls back and the target table is gone', async () => {
