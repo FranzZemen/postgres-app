@@ -4,11 +4,17 @@
 
 Code-first reference for consumer integration.
 
-## Minimal worker boot
+## Minimal worker boot (production: secrets-loader)
+
+Production callers bootstrap from AWS Secrets Manager via
+`@franzzemen/execution-context-secrets-loader`. No `AWSSECRET` env var, no
+local `config.json.encrypt`. The host's IAM role supplies the read permission
+(`Secrets-Manager-User-Policy` or equivalent). See Pre-Era-1.7 D1/D7 in
+`~/dev/projects/doc/prd/pre-era-1.7-secrets-loader-and-migration-shape.prd.md`.
 
 ```ts
 import {ExecutionContext} from '@franzzemen/execution-context';
-import {loadNodeExecutionContext} from '@franzzemen/execution-context-node-loader';
+import {loadSecretsExecutionConfigsFunction} from '@franzzemen/execution-context-secrets-loader';
 import {loadPostgresConfig} from '@franzzemen/postgres-app/config-loader';
 import {createPool} from '@franzzemen/postgres-app/pool';
 import {createKysely} from '@franzzemen/postgres-app/query';
@@ -18,12 +24,14 @@ import {MIN_SCHEMA_VERSION} from './schema-version.js';
 import type {Database} from './db/database.js';
 
 async function boot(): Promise<void> {
-  const ec = await loadNodeExecutionContext({
-    secret: process.env.AWSSECRET!,
-    jsonEncryptPath: './config.json.encrypt',
-    jsonFilePath: './config.json',
-    executionName: 'my-worker',
+  await ExecutionContext.loadFromLoader(loadSecretsExecutionConfigsFunction, {
+    bootstrap: {
+      awsContext: {/* region + secretsManager.{currentSecretSetName, secretSetNames} */},
+      profile: 'secrets-manager-user',
+      secretKey: 'execution-context',
+    },
   });
+  const ec = new ExecutionContext();
 
   const cfg = loadPostgresConfig(ec, 'rds-user');
   const pool = createPool(ec, cfg);
@@ -42,6 +50,27 @@ boot().catch((err) => {
   console.error('boot failed:', err);
   process.exit(1);
 });
+```
+
+## Test bootstrap (file-loader)
+
+Integration tests stay on `loadNodeExecutionContext` with a local
+`config.json.encrypt` (committed) and `config.json` override (gitignored). Run
+with `AWSSECRET` in env. This is the only path that still reads local config
+files; production code paths must not.
+
+```ts
+import {loadNodeExecutionContext} from '@franzzemen/execution-context-node-loader';
+import {ExecutionContext} from '@franzzemen/execution-context';
+
+await loadNodeExecutionContext({
+  secret: process.env.AWSSECRET!,
+  jsonEncryptPath: './config.json.encrypt',
+  jsonFilePath: './config.json',
+  executionName: 'postgres-app-test',
+  environment: 'lambda',
+});
+const ec = new ExecutionContext();
 ```
 
 ## Kysely query examples
@@ -127,43 +156,64 @@ For higher-throughput workloads, pair LISTEN with `FOR UPDATE SKIP LOCKED` polli
 
 ## Migrations
 
-Migration file at `<consumer-package>/migrations/1700000005000_add_trade_yield_segments.cjs`:
+Migration file at `<consumer-package>/src/project/migrations/2026-05-30T140030Z_add_trade_yield_segments.ts`
+(transpiled to `out/project/migrations/2026-05-30T140030Z_add_trade_yield_segments.js`):
 
-```js
-exports.up = (pgm) => {
+```ts
+import type {MigrationBuilder} from 'node-pg-migrate';
+
+export const up = (pgm: MigrationBuilder): void => {
   pgm.createTable('trade_yield_segments', {
-    id: { type: 'serial', primaryKey: true },
-    trade_id: { type: 'integer', notNull: true, references: 'trades(id)' },
-    yield_bps: { type: 'integer', notNull: true },
+    id: {type: 'serial', primaryKey: true},
+    trade_id: {type: 'integer', notNull: true, references: 'trades(id)'},
+    yield_bps: {type: 'integer', notNull: true},
   });
 };
 
-exports.down = (pgm) => {
+export const down = (pgm: MigrationBuilder): void => {
   pgm.dropTable('trade_yield_segments');
 };
 ```
 
-Run via `bs.server-migrate` (C10) — or directly in code if needed:
+### Production: run via `pg-app.migrate`
+
+The CLI bootstraps from Secrets Manager — no `AWSSECRET`, no local
+`config.json.encrypt`. Caller's IAM role must permit reading the secret.
+
+```bash
+pg-app.migrate dev_franz --migrations-package=@franzzemen/brokenstock-postgres-ddl
+pg-app.migrate dev_franz --migrations-package=@franzzemen/brokenstock-postgres-ddl --direction=down --count=1
+```
+
+`@franzzemen/aws-build-system` wraps this as `abs.migrate <env>` and hard-codes
+`--migrations-package=@franzzemen/brokenstock-postgres-ddl` for Brokenstock.
+
+### Programmatic (e.g. inside another tool)
 
 ```ts
-import {runMigrations} from '@franzzemen/postgres-app/migrations';
+import {migrate} from '@franzzemen/postgres-app/migrations';
+import {migrationsDir} from '@franzzemen/brokenstock-postgres-ddl';
 
-await runMigrations(ec, pool, {
+await migrate(ec, {
+  migrationsDir,
   direction: 'up',
-  migrationsDir: path.resolve(import.meta.dirname, '../migrations'),
-  migrationsTable: 'pgmigrations_my_package',
 });
 ```
+
+Default `migrationsTable: 'pgmigrations'` is canonical Brokenstock-wide. The
+prior `pgmigrations_<package-suffix>` per-consumer convention is retired
+(Pre-Era-1.6); override only for non-Brokenstock deployments.
 
 ## `MIN_SCHEMA_VERSION` declaration
 
 ```ts
 // src/project/schema-version.ts
 /**
- * Largest migration id this code depends on. Bumped manually when a new
- * migration is required by changes shipping in this PR.
+ * Timestamp-string filename (without extension) of the largest migration this
+ * code depends on. Bumped manually when a new migration is required by
+ * changes shipping in this PR.
  */
-export const MIN_SCHEMA_VERSION = 1700000005000;
+export const MIN_SCHEMA_VERSION = '2026-05-30T140030Z_add_trade_yield_segments';
 ```
 
 Boot check:
@@ -173,12 +223,12 @@ import {verifyMinSchemaVersion, MinSchemaVersionError} from '@franzzemen/postgre
 import {MIN_SCHEMA_VERSION} from './schema-version.js';
 
 try {
-  await verifyMinSchemaVersion(ec, pool, MIN_SCHEMA_VERSION, 'pgmigrations_my_package');
+  await verifyMinSchemaVersion(ec, pool, MIN_SCHEMA_VERSION, 'pgmigrations');
 } catch (err) {
   if (err instanceof MinSchemaVersionError) {
     console.error(
-      `Schema gate failed: required ${err.required}, applied ${err.applied} on ${err.database}. ` +
-      `Run bs.server-migrate before deploying this code.`,
+      `Schema gate failed: required ${err.required} on ${err.database} (${err.migrationsTable}). ` +
+      `Run pg-app.migrate (or the product-specific wrapper) before deploying this code.`,
     );
     process.exit(1);
   }

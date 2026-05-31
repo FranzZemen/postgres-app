@@ -62,7 +62,7 @@
     "@franzzemen/fastest-validator-wrapper": "^2.3.2",
     "@franzzemen/logger": "^104.0.42",
     "@franzzemen/utility": "^13.7.16",
-    "@inquirer/prompts": "^7.10.1",
+    "@inquirer/prompts": "^8.5.1",
     "fastest-validator": "^1.19.1",
     "kysely": "^0.29.2",
     "node-pg-migrate": "^8.0.4",

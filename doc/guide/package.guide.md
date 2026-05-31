@@ -82,12 +82,12 @@ See the [usage doc](../usage/package.usage.md) for concrete code.
 
 Each consumer package owns:
 
-- A `migrations/` directory at package root holding its `node-pg-migrate` files (timestamped `.cjs` or `.sql`).
-- A `MIN_SCHEMA_VERSION` constant — the largest migration id the code depends on. Bumped manually when a new migration is required by the code change shipping in the same PR.
+- A `src/project/migrations/` directory holding its `node-pg-migrate` files (timestamped `.ts`, transpiled to `out/project/migrations/*.js`). See the [MIN_SCHEMA_VERSION intent doc](../intent/min-schema-version-semantics.intent.md) for the filename convention.
+- A `MIN_SCHEMA_VERSION` constant — the timestamp-string filename (without extension) of the largest migration the code depends on. Bumped manually when a new migration is required by the code change shipping in the same PR.
 
 ```ts
 // In consumer package, src/project/schema-version.ts
-export const MIN_SCHEMA_VERSION = 1700000005000;
+export const MIN_SCHEMA_VERSION = '2026-05-30T140030Z_worker_jobs';
 ```
 
 Boot enforcement:
@@ -161,17 +161,31 @@ await db.transaction().execute(async (trx) => {
 
 `runMigrations()` and `verifyMinSchemaVersion()` wrap `node-pg-migrate`. Standard flow:
 
-- Migrations live at `<consumer-package>/migrations/` (timestamped `.cjs` or `.sql` files following node-pg-migrate convention).
-- `bs.server-migrate <env>` (C10) calls `runMigrations({direction: 'up', migrationsDir, migrationsTable})` against the target env.
-- Worker boot and `bs.server-deploy` pre-flight both call `verifyMinSchemaVersion()` with the consumer's `MIN_SCHEMA_VERSION`.
+- Migrations live at `<consumer-package>/src/project/migrations/` (timestamped `.ts` files transpiled to `out/project/migrations/*.js`; see the [intent doc](../intent/min-schema-version-semantics.intent.md)).
+- `pg-app.migrate <env> --migrations-package=<pkg>` (the CLI shipped by this package) calls the programmatic `migrate(ec, ...)` orchestrator against the target env. Per-product wrappers (e.g. `abs.migrate` in `@franzzemen/aws-build-system`) hard-code the DDL package name.
+- Worker boot and the per-product deploy pre-flight both call `verifyMinSchemaVersion()` with the consumer's `MIN_SCHEMA_VERSION`.
 
 The migration runner uses the same IAM-auth pool as runtime — no separate password-based admin path.
 
-### `migrationsTable` per consumer
+### `migrationsTable`
 
-Multiple consumers can share a single database (e.g. dev_franz). To keep their migration trees isolated, each consumer passes its own `migrationsTable` name to `runMigrations` and `verifyMinSchemaVersion`. Convention: `pgmigrations_<package-suffix>` (e.g. `pgmigrations_trades`, `pgmigrations_yield`).
+Default is `pgmigrations` (node-pg-migrate's default), and that is the canonical name across the schema. The earlier `pgmigrations_<package-suffix>` convention is retired (Pre-Era-1.6): when consumers share a database, migration-tree isolation is enforced by database boundaries, not per-table name suffixes. The `--migrations-table` flag on `pg-app.migrate` remains available as an escape hatch for non-Brokenstock deployments.
 
-Default is `pgmigrations` (node-pg-migrate's default). Override per package.
+### `pg-app.migrate` CLI
+
+Shape:
+
+```
+pg-app.migrate <env> --migrations-package=<pkg-name> [--direction up|down] [--count N] [--migrations-table <name>]
+```
+
+The CLI resolves the named npm package's `migrationsDir` export (via `require.resolve('<pkg>/package.json')` + dynamic `import('<pkg>')`), sets `BROKENSTOCK_DB=<env>` so `postgres-app`'s config-loader picks the right `aws.rds.<role>` block, then runs `node-pg-migrate` against that directory.
+
+**Bootstrap (production callers):** the CLI loads configuration via `@franzzemen/execution-context-secrets-loader`'s `loadSecretsExecutionConfigsFunction`, fetching the full execution-context config from AWS Secrets Manager (default `secretKey: 'execution-context'`). There is no `AWSSECRET` env var, no `./config.json.encrypt` lookup, and no cwd assumption. The host process (EC2 worker, CI runner, etc.) must have IAM permissions to read the secret — typically via the `Secrets-Manager-User-Policy` managed policy that the broken-stock-admin lambdas also use. See Pre-Era-1.7 D1/D7 in `~/dev/projects/doc/prd/pre-era-1.7-secrets-loader-and-migration-shape.prd.md` for the rationale (convergence on one config-delivery model across lambda + EC2; retirement of NAT-era `config.json.encrypt`-in-artifact).
+
+**Bootstrap (test callers):** integration tests in this package and in consumer packages continue to use `loadNodeExecutionContext` with a local `config.json` / `config.json.encrypt` pair. Production and test bootstrap paths live side-by-side per the global D2 split — code picks at the entrypoint level, not at runtime. See [the testing section](#testing) below.
+
+The CLI accepts any DDL package that exports `migrationsDir: string`; `postgres-app` itself stays product-agnostic.
 
 ## Testing
 

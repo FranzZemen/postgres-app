@@ -43,9 +43,16 @@ consumer's code requires schema state that doesn't exist yet.
 
 ## Filename convention
 
-`YYYY-MM-DDTHHMMSSZ_<snake_case_slug>.cjs` — ISO 8601 UTC with `Z` suffix.
-Lex-sortable as strings. The `name` column stores the filename without the
-`.cjs` extension.
+`YYYY-MM-DDTHHMMSSZ_<snake_case_slug>.ts` — ISO 8601 UTC with `Z` suffix.
+Lex-sortable as strings. Migrations live at `src/project/migrations/` per the
+standard `@franzzemen/*` source layout and are transpiled by `tsc` to
+`out/project/migrations/*.js` at build time; node-pg-migrate 8.x discovers the
+post-build `.js` files. The `name` column stores the filename without the
+extension, so the column value is identical regardless of source extension.
+
+This is the canonical layout for consumer DDL packages (e.g.
+`@franzzemen/brokenstock-postgres-ddl`). See Pre-Era-1.7 D4 in
+`~/dev/projects/doc/prd/pre-era-1.7-secrets-loader-and-migration-shape.prd.md`.
 
 ## The `--migrations-package` discovery pattern
 
