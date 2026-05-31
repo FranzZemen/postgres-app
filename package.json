@@ -1,6 +1,6 @@
 {
   "name": "@franzzemen/postgres-app",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "PostgreSQL access for the worker fleet: pg pool with IAM auth via @franzzemen/aws-app/rds, kysely query builder, LISTEN/NOTIFY client, node-pg-migrate wrapper, MIN_SCHEMA_VERSION enforcement",
   "homepage": "https://github.com/FranzZemen/postgres-app#readme",
   "bugs": {
