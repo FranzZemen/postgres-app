@@ -25,8 +25,8 @@ The CLI:
   1. Sets BROKENSTOCK_DB=<env> so postgres-app's config-loader picks the right DB.
   2. Bootstraps the execution context from AWS Secrets Manager via
      @franzzemen/execution-context-secrets-loader (host IAM supplies read access).
-  3. Resolves the migrations package via `require.resolve('<pkg>/package.json')`
-     and reads its `migrationsDir` export.
+  3. Resolves the migrations package via dynamic `import(<pkg>)` and reads its
+     `migrationsDir` export.
   4. Calls the programmatic `migrate(ec, ...)` orchestrator from
      @franzzemen/postgres-app/migrations.
 */
