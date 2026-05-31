@@ -32,7 +32,6 @@ The CLI:
 */
 
 import {parseArgs} from 'node:util';
-import {createRequire} from 'node:module';
 import {ExecutionContext} from '@franzzemen/execution-context';
 import {LoggerApi} from '@franzzemen/logger';
 import {LoadSecretsExecutionConfigsFunctionInputs, loadSecretsExecutionContext} from '@franzzemen/execution-context-secrets-loader';
@@ -100,12 +99,14 @@ async function main(): Promise<void> {
 
   const migrationsTable = values['migrations-table'];
 
-  // Resolve the migrations package's `migrationsDir` export. Use createRequire
-  // so this works even when the consumer's package is not adjacent on disk —
-  // require.resolve walks node_modules per Node's standard resolution.
-  const require = createRequire(import.meta.url);
-  // Sanity: ensure the package is installed (fail fast with a clear message).
-  require.resolve(`${pkgName}/package.json`);
+  // Resolve the migrations package's `migrationsDir` export. The dynamic
+  // import below walks node_modules per Node's standard resolution and will
+  // throw ERR_MODULE_NOT_FOUND with a clear message if the package isn't
+  // installed. We deliberately do NOT pre-check via `require.resolve(<pkg>/package.json)`
+  // because modern packages with restrictive `exports` fields reject the
+  // ./package.json subpath access (ERR_PACKAGE_PATH_NOT_EXPORTED) — forcing
+  // every consumer of pg-app.migrate to explicitly export their package.json
+  // just to pass a sanity check.
   const pkgModule = (await import(pkgName)) as {migrationsDir?: string};
   const migrationsDir = pkgModule.migrationsDir;
   if (typeof migrationsDir !== 'string' || migrationsDir.length === 0) {
