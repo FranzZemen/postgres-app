@@ -47,6 +47,11 @@ export async function runMigrations(
       direction: args.direction,
       migrationsTable: args.migrationsTable ?? 'pgmigrations',
       verbose: false,
+      // Skip dotfiles AND source maps. node-pg-migrate's default ignorePattern
+      // is dotfiles only; without this, every `.js.map` shipped alongside a
+      // transpiled migration is treated as a migration and the runner throws
+      // ERR_UNKNOWN_FILE_EXTENSION trying to load it.
+      ignorePattern: '(?:\\..*|.*\\.map)',
     };
     if (args.count !== undefined) {
       runnerOpts.count = args.count;
