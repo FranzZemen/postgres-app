@@ -55,7 +55,7 @@
   "dependencies": {
     "@aws-sdk/credential-providers": "^3.1057.0",
     "@aws-sdk/rds-signer": "^3.1057.0",
-    "@franzzemen/aws-app": "^29.1.4",
+    "@franzzemen/aws-app": "^29.1.5",
     "@franzzemen/enhanced-error": "^8.1.207",
     "@franzzemen/execution-context": "^16.1.25",
     "@franzzemen/execution-context-node-loader": "^2.0.32",
