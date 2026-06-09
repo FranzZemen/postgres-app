@@ -55,11 +55,11 @@
   "dependencies": {
     "@aws-sdk/credential-providers": "^3.1065.0",
     "@aws-sdk/rds-signer": "^3.1065.0",
-    "@franzzemen/aws-app": "^29.1.12",
+    "@franzzemen/aws-app": "^29.1.13",
     "@franzzemen/enhanced-error": "^8.1.211",
     "@franzzemen/execution-context": "^16.2.1",
     "@franzzemen/execution-context-node-loader": "^2.0.35",
-    "@franzzemen/execution-context-secrets-loader": "^4.0.144",
+    "@franzzemen/execution-context-secrets-loader": "^4.0.145",
     "@franzzemen/fastest-validator-wrapper": "^2.3.6",
     "@franzzemen/logger": "^104.0.46",
     "@franzzemen/utility": "^13.7.18",
