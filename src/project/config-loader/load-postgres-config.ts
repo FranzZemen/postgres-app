@@ -60,9 +60,29 @@ export function loadPostgresConfig(
 
   const pgCtx = ec.get<PostgresContext>(postgresContextKey) ?? {};
   const userPool = pgCtx.pool ?? {};
+
+  // Per-worker pool-size override (PRD E3). The deploy doc injects
+  // BROKENSTOCK_DB_POOL_MAX into each worker's env file, derived from the
+  // worker-role registry's connectionShare × cluster connection budget ÷
+  // processCount, so the fleet's total draw stays inside the cluster floor.
+  // This takes precedence over the shared config blob's `pool.max` precisely
+  // because workers are NOT uniform — a heavy yields/imports process and a light
+  // auth process pull different shares from one cluster budget. Ignored (with a
+  // warning) if unset or not a positive integer, falling back to config/default.
+  const envPoolMaxRaw = process.env['BROKENSTOCK_DB_POOL_MAX'];
+  let envPoolMax: number | undefined;
+  if (envPoolMaxRaw !== undefined && envPoolMaxRaw !== '') {
+    const parsed = Number.parseInt(envPoolMaxRaw, 10);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      envPoolMax = parsed;
+    } else {
+      log.warn({envPoolMaxRaw}, 'BROKENSTOCK_DB_POOL_MAX is not a positive integer; ignoring');
+    }
+  }
+
   const pool = {
     min: userPool.min ?? DEFAULT_POOL.min,
-    max: userPool.max ?? DEFAULT_POOL.max,
+    max: envPoolMax ?? userPool.max ?? DEFAULT_POOL.max,
     idleTimeoutMillis: userPool.idleTimeoutMillis ?? DEFAULT_POOL.idleTimeoutMillis,
     connectionTimeoutMillis: userPool.connectionTimeoutMillis ?? DEFAULT_POOL.connectionTimeoutMillis,
     idleInTransactionSessionTimeoutMillis: userPool.idleInTransactionSessionTimeoutMillis ?? DEFAULT_POOL.idleInTransactionSessionTimeoutMillis,
