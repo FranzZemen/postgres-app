@@ -19,6 +19,11 @@ const DEFAULT_POOL = {
   max: 10,
   idleTimeoutMillis: 600_000,
   connectionTimeoutMillis: 5_000,
+  // Server-side backstops so no single poisoned job can pin the connection
+  // budget (incident-2026-06-14). Generous vs the sub-second per-trade chunk
+  // computes; aggressive enough to break a stuck-transaction storm. 0 disables.
+  idleInTransactionSessionTimeoutMillis: 30_000,
+  statementTimeoutMillis: 60_000,
 } as const;
 
 /**
@@ -60,6 +65,8 @@ export function loadPostgresConfig(
     max: userPool.max ?? DEFAULT_POOL.max,
     idleTimeoutMillis: userPool.idleTimeoutMillis ?? DEFAULT_POOL.idleTimeoutMillis,
     connectionTimeoutMillis: userPool.connectionTimeoutMillis ?? DEFAULT_POOL.connectionTimeoutMillis,
+    idleInTransactionSessionTimeoutMillis: userPool.idleInTransactionSessionTimeoutMillis ?? DEFAULT_POOL.idleInTransactionSessionTimeoutMillis,
+    statementTimeoutMillis: userPool.statementTimeoutMillis ?? DEFAULT_POOL.statementTimeoutMillis,
   };
 
   log.debug({envName, pool}, 'postgres-app config resolved');

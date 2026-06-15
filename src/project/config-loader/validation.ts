@@ -23,6 +23,8 @@ export const postgresContextSchema = {
       max: {type: 'number', integer: true, min: 1, optional: true},
       idleTimeoutMillis: {type: 'number', integer: true, min: 0, optional: true},
       connectionTimeoutMillis: {type: 'number', integer: true, min: 0, optional: true},
+      idleInTransactionSessionTimeoutMillis: {type: 'number', integer: true, min: 0, optional: true},
+      statementTimeoutMillis: {type: 'number', integer: true, min: 0, optional: true},
     },
   },
 };

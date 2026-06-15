@@ -45,6 +45,15 @@ export function createPool(
     max: config.pool.max,
     idleTimeoutMillis: config.pool.idleTimeoutMillis,
     connectionTimeoutMillis: config.pool.connectionTimeoutMillis,
+    // Server-side backstops (pg passes these to each connection). A stuck/aborted
+    // idle-in-transaction connection or a runaway statement is force-terminated by
+    // Postgres, freeing it back to the budget. 0 = disabled.
+    ...(config.pool.idleInTransactionSessionTimeoutMillis > 0
+      ? {idle_in_transaction_session_timeout: config.pool.idleInTransactionSessionTimeoutMillis}
+      : {}),
+    ...(config.pool.statementTimeoutMillis > 0
+      ? {statement_timeout: config.pool.statementTimeoutMillis}
+      : {}),
   };
 
   const pool = new Pool(pgConfig);

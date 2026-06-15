@@ -19,6 +19,19 @@ export interface PostgresPoolSizing {
   max?: number;
   idleTimeoutMillis?: number;
   connectionTimeoutMillis?: number;
+  /**
+   * Postgres `idle_in_transaction_session_timeout` (ms). Server-side backstop:
+   * a connection left idle inside an open (or aborted) transaction this long is
+   * terminated by Postgres, releasing it back to the budget. 0 disables.
+   * Prevents one poisoned job's stuck transactions from starving the whole
+   * connection budget (see incident-2026-06-14 as-of-yield FK storm).
+   */
+  idleInTransactionSessionTimeoutMillis?: number;
+  /**
+   * Postgres `statement_timeout` (ms). Any single statement running longer is
+   * aborted. 0 disables. Backstop against a runaway query pinning a connection.
+   */
+  statementTimeoutMillis?: number;
 }
 
 /**
