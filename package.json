@@ -59,7 +59,7 @@
     "@franzzemen/enhanced-error": "^8.1.217",
     "@franzzemen/execution-context": "^16.2.7",
     "@franzzemen/execution-context-node-loader": "^2.0.41",
-    "@franzzemen/execution-context-secrets-loader": "^4.0.157",
+    "@franzzemen/execution-context-secrets-loader": "^4.0.158",
     "@franzzemen/fastest-validator-wrapper": "^2.3.12",
     "@franzzemen/logger": "^104.0.52",
     "@franzzemen/utility": "^13.7.24",
