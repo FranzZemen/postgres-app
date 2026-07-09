@@ -12,6 +12,9 @@
   "references": [
     {
       "path": "../project"
+    },
+    {
+      "path": "../project/tsconfig.json"
     }
   ],
   "include": [
