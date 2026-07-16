@@ -53,13 +53,13 @@
     }
   },
   "dependencies": {
-    "@aws-sdk/credential-providers": "^3.1087.0",
-    "@aws-sdk/rds-signer": "^3.1087.0",
-    "@franzzemen/aws-app": "^29.2.13",
+    "@aws-sdk/credential-providers": "^3.1088.0",
+    "@aws-sdk/rds-signer": "^3.1088.0",
+    "@franzzemen/aws-app": "^29.2.14",
     "@franzzemen/enhanced-error": "^8.1.223",
     "@franzzemen/execution-context": "^16.2.11",
     "@franzzemen/execution-context-node-loader": "^2.0.46",
-    "@franzzemen/execution-context-secrets-loader": "^4.0.171",
+    "@franzzemen/execution-context-secrets-loader": "^4.0.172",
     "@franzzemen/fastest-validator-wrapper": "^2.3.17",
     "@franzzemen/logger": "^104.0.58",
     "@franzzemen/utility": "^14.0.0",
